@@ -488,8 +488,8 @@ tr:hover td{background:rgba(255,255,255,.02);}
 <div class="page" id="page-list">
   <div class="ph"><div><div class="pt">信件清單</div></div></div>
   <div class="filters">
-    <input class="sinput" type="text" placeholder="搜尋主旨、ID…" oninput="lsSearch(this.value)">
-    <select class="fsel" onchange="lsStatus(this.value)"><option value="">全部狀態</option><option value="pending">預先登記</option><option value="wip">內部反修中</option><option value="done">已完成</option><option value="revision">外部反修中</option><option value="closed">結案</option></select>
+    <input class="sinput" type="text" placeholder="搜尋信件主旨…" oninput="lsSearch(this.value)">
+    <select class="fsel" onchange="lsStatus(this.value)"><option value="">全部狀態</option><option value="pending">預先登記</option><option value="wip">內部反修中</option><option value="done">已完成</option><option value="revision">外部反修中</option></select>
     <select class="fsel" id="list-df" onchange="lsDesigner(this.value)"><option value="">全部設計師</option></select>
   </div>
   <div class="card" style="padding:0;overflow:hidden;">
@@ -586,6 +586,16 @@ tr:hover td{background:rgba(255,255,255,.02);}
         <div class="fg2">
           <div class="field"><label>開始日期 *</label><input type="date" id="leave-start" style="cursor:pointer;"></div>
           <div class="field"><label>結束日期 *</label><input type="date" id="leave-end" style="cursor:pointer;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);">
+          <input type="checkbox" id="leave-partial" style="width:auto;accent-color:var(--accent);" onchange="toggleLeavePartial(this.checked)">
+          <label style="margin:0;font-size:13px;color:var(--text)">非整天假（部分時數）</label>
+        </div>
+        <div id="leave-partial-row" style="display:none;">
+          <div class="fg2">
+            <div class="field"><label>請假時數 (hr)</label><input type="number" id="leave-hours" min="0.5" max="8" step="0.5" placeholder="例：2"></div>
+            <div class="field"><label>說明</label><input type="text" id="leave-hours-note" placeholder="例：下午請假2小時"></div>
+          </div>
         </div>
         <div class="field">
           <label>假別 *</label>
@@ -701,9 +711,17 @@ tr:hover td{background:rgba(255,255,255,.02);}
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px;">
     <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3);">依等級統計（只計算納入績效工單）</div>
     <div class="tw">
-      <table class="perf-table">
+      <table class="perf-table" style="table-layout:fixed;width:100%;">
+        <colgroup>
+          <col style="width:220px">
+          <col style="width:120px">
+          <col style="width:140px">
+          <col style="width:130px">
+          <col style="width:130px">
+        </colgroup>
         <thead><tr>
-          <th>等級</th><th style="text-align:right">工單數</th>
+          <th style="text-align:left">等級</th>
+          <th style="text-align:right">工單數</th>
           <th style="text-align:right">外部反修單數</th>
           <th style="text-align:right">反修率(%)</th>
           <th style="text-align:right">總工時(hr)</th>
@@ -717,15 +735,43 @@ tr:hover td{background:rgba(255,255,255,.02);}
   <div class="card" style="padding:0;overflow:hidden;">
     <div style="padding:12px 18px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--text3);">依類別統計（只計算納入績效工單）</div>
     <div class="tw">
-      <table class="perf-table">
+      <table class="perf-table" style="table-layout:fixed;width:100%;">
+        <colgroup>
+          <col style="width:220px">
+          <col style="width:120px">
+          <col style="width:140px">
+          <col style="width:130px">
+          <col style="width:130px">
+        </colgroup>
         <thead><tr>
-          <th>類別</th><th style="text-align:right">工單數</th>
+          <th style="text-align:left">類別</th>
+          <th style="text-align:right">工單數</th>
           <th style="text-align:right">外部反修單數</th>
           <th style="text-align:right">反修率(%)</th>
           <th style="text-align:right">總工時(hr)</th>
         </tr></thead>
         <tbody id="ms-cat-tbody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- 工單明細展開面板 -->
+  <div id="ms-detail-panel" style="display:none;margin-top:16px;">
+    <div class="card" style="padding:0;overflow:hidden;border-color:var(--accent);">
+      <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(79,142,247,.06);">
+        <span id="ms-detail-title" style="font-family:var(--mono);font-size:12px;color:var(--accent)"></span>
+        <button class="btn btn-secondary btn-sm" onclick="closeMsDetail()">✕ 收起</button>
+      </div>
+      <div class="tw">
+        <table class="perf-table">
+          <thead><tr>
+            <th>ID</th><th>主旨</th><th>設計師</th><th>組長</th>
+            <th>狀態</th><th style="text-align:right">總工時</th>
+            <th style="text-align:right">外部反修</th><th>截止日</th>
+          </tr></thead>
+          <tbody id="ms-detail-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -968,6 +1014,13 @@ tr:hover td{background:rgba(255,255,255,.02);}
           </div>
         </div>
         <!-- DL Miss 已移除（改由績效 GD 沿單數管理） -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);">
+          <input type="checkbox" id="edit-count-perf" style="width:auto;accent-color:var(--accent);" checked>
+          <div>
+            <div style="font-size:13px;color:var(--text);font-weight:500;">納入績效計算</div>
+            <div style="font-size:11px;color:var(--text3);">取消勾選此工單將不列入績效統計</div>
+          </div>
+        </div>
         <div class="field">
           <label>備註</label>
           <textarea id="edit-note" rows="3" placeholder="補充說明…"></textarea>
@@ -1881,7 +1934,18 @@ function openEdit(id){
     lField.style.display = 'none';
   }
 
-  // 填充欄位值
+  // 填充等級/類別（先重建選項再設值）
+  const lvls = mailLevels.length ? mailLevels : DEFAULT_LEVELS;
+  const cats = mailCategories.length ? mailCategories : DEFAULT_CATEGORIES;
+  document.getElementById('edit-level').innerHTML =
+    '<option value="">— 選擇等級 —</option>' + lvls.map(v=>`<option value="${v}">${v}</option>`).join('');
+  document.getElementById('edit-category').innerHTML =
+    '<option value="">— 選擇類別 —</option>' + cats.map(v=>`<option value="${v}">${v}</option>`).join('');
+  // 設定目前值
+  document.getElementById('edit-level').value    = m.mail_level    || '';
+  document.getElementById('edit-category').value = m.mail_category || '';
+
+  // 填充其他欄位值
   document.getElementById('edit-mo-id').textContent  = '✏️ 編輯派單 ' + id;
   document.getElementById('edit-subject').value      = m.subject;
   document.getElementById('edit-due').value          = m.due_date;
@@ -1891,6 +1955,8 @@ function openEdit(id){
   document.getElementById('edit-comm').value         = m.commHours||0;
   document.getElementById('edit-meet').value         = m.meetHours||0;
   document.getElementById('edit-note').value         = m.note||'';
+  const cpEl = document.getElementById('edit-count-perf');
+  if(cpEl) cpEl.checked = m.count_perf !== false;
   updateEditTotal();
   document.getElementById('edit-modal').classList.add('open');
 }
@@ -1939,6 +2005,8 @@ function saveEdit(){
   m.note          = document.getElementById('edit-note').value;
   m.mail_level    = document.getElementById('edit-level')?.value||'';
   m.mail_category = document.getElementById('edit-category')?.value||'';
+  const cpEl2 = document.getElementById('edit-count-perf');
+  if(cpEl2) m.count_perf = cpEl2.checked;
   if(curLeader==='__admin__'){ const s=document.getElementById('edit-leader'); if(s) m.leader=s.value; }
   saveMails();
   closeEdit();
@@ -2440,16 +2508,34 @@ function renderWeeklyGroup(gId, range){
   // 總出勤人日 = Σ 每人出勤天數
   // 等效出勤人數 = 總出勤人日 ÷ 工作天數
   let totalAttendanceDays = 0;
-  const perDesLeaveDays = {}; // {des: 請假天數}
+  // perDesLeaveDays[des] = { days: 整天數, partialHrs: 部分時數合計, label: 顯示文字 }
+  const perDesLeaveDays = {};
   groupDes.forEach(des => {
-    const leaveDays = days.filter(d => isOnLeaveDay(des, d)).length;
-    perDesLeaveDays[des] = leaveDays;
-    totalAttendanceDays += (days.length - leaveDays);
+    const thisWeekLeaves = leaves.filter(lv =>
+      lv.person === des && lv.start <= range.to && lv.end >= range.from
+    );
+    const wholeDayLeaves = thisWeekLeaves.filter(lv => !lv.partial_hours);
+    const partialLeaves  = thisWeekLeaves.filter(lv => lv.partial_hours > 0);
+    // 整天假：只計算非部分時數的假，數 days 範圍內有幾天重疊
+    const leaveDays = days.filter(d =>
+      wholeDayLeaves.some(lv => lv.start <= d && lv.end >= d)
+    ).length;
+    // 部分時數：加總當週的部分假時數
+    const partialHrs = partialLeaves.reduce((s,lv)=>s+(lv.partial_hours||0),0);
+    // 顯示標籤
+    const parts = [];
+    if(leaveDays > 0) parts.push(`${leaveDays}天`);
+    if(partialHrs > 0) parts.push(`${partialHrs}hr`);
+    const label = parts.join('+');
+    perDesLeaveDays[des] = { days: leaveDays, partialHrs, label };
+    // 出勤計算：整天假扣天數，部分時數視為出勤（只扣比例）
+    const partialDayEquiv = partialHrs / 8;
+    totalAttendanceDays += (days.length - leaveDays - partialDayEquiv);
   });
   // 等效人數（用於平均，保留1位小數）
   const effectivePeople = days.length > 0 ? totalAttendanceDays / days.length : 0;
-  // 有請假的人（全週至少請一天）
-  const hasAnyLeave = groupDes.filter(d => perDesLeaveDays[d] > 0);
+  // 有請假的人（全週至少請一天或部分時數）
+  const hasAnyLeave = groupDes.filter(d => perDesLeaveDays[d].days>0 || perDesLeaveDays[d].partialHrs>0);
 
   const daysHeader = days.map(d => {
     const dt = new Date(d+'T00:00:00');
@@ -2461,7 +2547,7 @@ function renderWeeklyGroup(gId, range){
 
   const desRows = groupDes.map(des => {
     const desMails = periodMails.filter(m => m.designer === des);
-    const leaveDays = perDesLeaveDays[des];
+    const leaveData = perDesLeaveDays[des]; // { days, partialHrs, label }
 
     const mkCell = (v, cls='', des2=des, d2='') => {
       const leave = d2 ? isOnLeaveDay(des2, d2) : false;
@@ -2487,8 +2573,8 @@ function renderWeeklyGroup(gId, range){
 
     totCount+=sumCount; totMakeH+=sumMakeH; totInnerH+=sumInnerH; totExtH+=sumExtH;
 
-    const leaveNote = leaveDays > 0
-      ? ` <span style="font-size:10px;color:var(--red)">[請假${leaveDays}天]</span>` : '';
+    const leaveNote = leaveData.label
+      ? ` <span style="font-size:10px;color:var(--red)">[請假${leaveData.label}]</span>` : '';
 
     return `<tr>
       <td class="name-col">${des}${leaveNote}</td>
@@ -2529,7 +2615,7 @@ function renderWeeklyGroup(gId, range){
   </tr>`;
 
   const leaveInfo = hasAnyLeave.length
-    ? ` · ${hasAnyLeave.map(d=>`${d}請假${perDesLeaveDays[d]}天`).join('、')}` : '';
+    ? ` · ${hasAnyLeave.map(d=>`${d}請假${perDesLeaveDays[d].label}`).join('、')}` : '';
 
   contentEl.innerHTML = `
     <div class="card" style="padding:0;overflow:hidden;">
@@ -2679,11 +2765,12 @@ function renderLeaveCalendar(){
         ${monthLeaves.map(lv=>{
           const lt=LEAVE_TYPES[lv.type]||LEAVE_TYPES.special;
           const dur = Math.round((new Date(lv.end)-new Date(lv.start))/86400000)+1;
+          const durLabel = lv.partial_hours ? `${lv.partial_hours}hr` : `${dur}天`;
           return `<div class="upcoming-leave-item">
             <span class="leave-badge ${lt.cls}">${lt.label}</span>
             <span style="font-weight:500;min-width:80px">${lv.person}</span>
-            <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${lv.start}${lv.start!==lv.end?' ～ '+lv.end:''} (${dur}天)</span>
-            <span style="font-size:12px;color:var(--text3);flex:1">${lv.note||''}</span>
+            <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${lv.start}${lv.start!==lv.end?' ～ '+lv.end:''} (${durLabel})</span>
+            <span style="font-size:12px;color:var(--text3);flex:1">${lv.partial_hours_note||lv.note||''}</span>
             <button class="btn btn-secondary btn-sm" onclick="editLeave('${lv.id}')">編輯</button>
           </div>`;
         }).join('')}
@@ -2694,6 +2781,9 @@ function renderLeaveCalendar(){
   }
 }
 
+function toggleLeavePartial(checked){
+  document.getElementById('leave-partial-row').style.display = checked ? 'block' : 'none';
+}
 function openLeaveAdd(dateStr){
   leaveEditId = null;
   document.getElementById('leave-modal-title').textContent = '新增休假';
@@ -2701,6 +2791,10 @@ function openLeaveAdd(dateStr){
   document.getElementById('leave-end').value   = dateStr||new Date().toISOString().slice(0,10);
   document.getElementById('leave-type').value  = 'special';
   document.getElementById('leave-note').value  = '';
+  document.getElementById('leave-partial').checked = false;
+  document.getElementById('leave-partial-row').style.display = 'none';
+  document.getElementById('leave-hours').value = '';
+  document.getElementById('leave-hours-note').value = '';
   document.getElementById('leave-delete-btn').style.display='none';
   populateLeavePerson();
   document.getElementById('leave-modal').classList.add('open');
@@ -2715,6 +2809,12 @@ function editLeave(id){
   document.getElementById('leave-end').value    = lv.end;
   document.getElementById('leave-type').value   = lv.type;
   document.getElementById('leave-note').value   = lv.note||'';
+  // restore partial hours
+  const isPartial = !!(lv.partial_hours);
+  document.getElementById('leave-partial').checked = isPartial;
+  document.getElementById('leave-partial-row').style.display = isPartial ? 'block' : 'none';
+  document.getElementById('leave-hours').value = lv.partial_hours||'';
+  document.getElementById('leave-hours-note').value = lv.partial_hours_note||'';
   document.getElementById('leave-delete-btn').style.display='';
   document.getElementById('leave-modal').classList.add('open');
 }
@@ -2727,11 +2827,15 @@ function saveLeave(){
   const note   = document.getElementById('leave-note').value;
   if(!person||!start||!end){ toast('⚠ 請填寫人員與日期'); return; }
   if(start>end){ toast('⚠ 結束日期不可早於開始日期'); return; }
+  const isPartial = document.getElementById('leave-partial').checked;
+  const partial_hours = isPartial ? (parseFloat(document.getElementById('leave-hours').value)||0) : 0;
+  const partial_hours_note = isPartial ? document.getElementById('leave-hours-note').value : '';
+  const entry = { id: leaveEditId||'lv-'+Date.now(), person, start, end, type, note, partial_hours, partial_hours_note };
   if(leaveEditId){
-    const lv = leaves.find(x=>x.id===leaveEditId);
-    if(lv){ lv.person=person; lv.start=start; lv.end=end; lv.type=type; lv.note=note; }
+    const idx = leaves.findIndex(x=>x.id===leaveEditId);
+    if(idx>=0) leaves[idx]=entry; else leaves.push(entry);
   } else {
-    leaves.push({ id:'lv-'+Date.now(), person, start, end, type, note });
+    leaves.push(entry);
   }
   saveLeaves(); closeLeaveModal(); renderLeaveCalendar();
   toast('✓ 休假已儲存');
@@ -2835,32 +2939,92 @@ function renderMonthSum(){
   let data = mails.filter(m => m.count_perf!==false && (m.created_at||'').slice(0,7)===prefix);
   if(grp) data = data.filter(m => getDesLeaderId(m.designer)===grp);
 
-  function buildRows(keyFn, items){
+  function buildRows(keyFn, dimLabel){
     const map={};
     data.forEach(m=>{
       const k=keyFn(m)||'（未填）';
-      if(!map[k]) map[k]={cnt:0,ext:0,hrs:0};
+      if(!map[k]) map[k]={cnt:0,ext:0,hrs:0,mails:[]};
       map[k].cnt++;
       map[k].ext += (m.gd_extend||0);
       map[k].hrs += totalH(m);
+      map[k].mails.push(m);
     });
     return Object.entries(map).sort((a,b)=>b[1].cnt-a[1].cnt).map(([k,v])=>{
       const rate = v.cnt>0 ? Math.round(v.ext/v.cnt*100)+'%' : '—';
-      return`<tr>
-        <td>${k}</td>
-        <td class="num">${v.cnt}</td>
-        <td class="num">${v.ext}</td>
-        <td class="num" style="color:${v.ext>0?'var(--amber)':'var(--green)'}">${rate}</td>
-        <td class="num" style="color:var(--accent)">${v.hrs.toFixed(1)}</td>
+      const idx = Object.keys(map).indexOf(k);
+      return`<tr style="cursor:pointer;" onclick="openMsDetailByIdx(${idx},'${dimLabel}')"
+             onmouseover="this.style.background='rgba(79,142,247,.08)'" onmouseout="this.style.background=''">
+        <td style="color:var(--accent);text-decoration:underline;text-underline-offset:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${k}">${k} <span style="font-size:10px;opacity:.6">▶ 查看工單</span></td>
+        <td style="text-align:right;font-family:var(--mono)">${v.cnt}</td>
+        <td style="text-align:right;font-family:var(--mono)">${v.ext}</td>
+        <td style="text-align:right;font-family:var(--mono);color:${v.ext>0?'var(--amber)':'var(--green)'}">${rate}</td>
+        <td style="text-align:right;font-family:var(--mono);color:var(--accent)">${v.hrs.toFixed(1)}</td>
       </tr>`;
     }).join('');
   }
 
+  // store for detail lookup (keyed by index for safe onclick)
+  window._msSummaryData   = data;
+  window._msSummaryLevelMap = window._msSummaryLevelMapTmp || {};
+  window._msSummaryCatMap   = window._msSummaryCatMapTmp  || {};
+
+  // build level map now
+  const lvlMap={}, catMap={};
+  data.forEach(m=>{
+    const lk=m.mail_level||'（未填）';  if(!lvlMap[lk]) lvlMap[lk]=[];  lvlMap[lk].push(m);
+    const ck=m.mail_category||'（未填）'; if(!catMap[ck]) catMap[ck]=[]; catMap[ck].push(m);
+  });
+  window._msSummaryLevelMap = lvlMap;
+  window._msSummaryCatMap   = catMap;
+
   const lvlTb = document.getElementById('ms-level-tbody');
   const catTb = document.getElementById('ms-cat-tbody');
   const empty = '<tr><td colspan="5" class="empty">本月無資料</td></tr>';
-  if(lvlTb) lvlTb.innerHTML = buildRows(m=>m.mail_level)||empty;
-  if(catTb) catTb.innerHTML = buildRows(m=>m.mail_category)||empty;
+  if(lvlTb) lvlTb.innerHTML = buildRows(m=>m.mail_level||'（未填）','等級')||empty;
+  if(catTb) catTb.innerHTML = buildRows(m=>m.mail_category||'（未填）','類別')||empty;
+  closeMsDetail();
+}
+
+function openMsDetailByIdx(idx, dimLabel){
+  const mapObj = dimLabel==='等級' ? window._msSummaryLevelMap : window._msSummaryCatMap;
+  if(!mapObj) return;
+  const keys = Object.keys(mapObj);
+  const key = keys[idx];
+  if(key === undefined) return;
+  const matched = mapObj[key] || [];
+  openMsDetailRender(key, dimLabel, matched);
+}
+
+function openMsDetail(key, dimLabel){
+  const mapObj = dimLabel==='等級' ? window._msSummaryLevelMap : window._msSummaryCatMap;
+  const matched = (mapObj && mapObj[key]) || [];
+  openMsDetailRender(key, dimLabel, matched);
+}
+
+function openMsDetailRender(key, dimLabel, matched){
+  document.getElementById('ms-detail-title').textContent =
+    `${dimLabel}：${key}　共 ${matched.length} 筆工單`;
+
+  const tb = document.getElementById('ms-detail-tbody');
+  tb.innerHTML = matched.length ? matched.map(m=>`<tr>
+    <td class="mid" style="white-space:nowrap">${m.id}</td>
+    <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${m.subject}">${m.subject}</td>
+    <td>${m.designer}</td>
+    <td style="font-size:11px;color:var(--text2)">${lName(m.leader)}</td>
+    <td>${bHtml(m.status)}</td>
+    <td class="num" style="color:var(--accent)">${totalH(m).toFixed(1)}h</td>
+    <td class="num">${m.gd_extend>0?`<span class="rp">${m.gd_extend}</span>`:'<span class="ind-na">—</span>'}</td>
+    <td style="font-size:12px;white-space:nowrap">${m.due_date||'—'}</td>
+  </tr>`).join('') : '<tr><td colspan="8" class="empty">無資料</td></tr>';
+
+  const panel = document.getElementById('ms-detail-panel');
+  panel.style.display = 'block';
+  setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'start'}), 50);
+}
+
+function closeMsDetail(){
+  const panel = document.getElementById('ms-detail-panel');
+  if(panel) panel.style.display='none';
 }
 
 function initMonthSumFilters(){
